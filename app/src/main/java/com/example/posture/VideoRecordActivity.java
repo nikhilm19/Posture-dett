@@ -12,17 +12,28 @@ import android.provider.MediaStore;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
+import android.widget.ProgressBar;
 import android.widget.Toast;
 import android.widget.VideoView;
 
 import java.io.File;
 import java.time.Instant;
+import java.util.List;
+
+import com.amazonaws.mobileconnectors.s3.transferutility.*;
 
 
+import com.amazonaws.mobile.client.AWSMobileClient;
+import com.amazonaws.regions.Regions;
+import com.amazonaws.services.s3.AmazonS3;
+import com.amazonaws.services.s3.AmazonS3Client;
+import com.amazonaws.services.s3.model.ListObjectsV2Result;
+import com.amazonaws.services.s3.model.S3ObjectSummary;
 
 public class VideoRecordActivity extends AppCompatActivity {
 
     Uri videoUri;
+    File outputFile;
 
 
     Button button;
@@ -30,6 +41,8 @@ public class VideoRecordActivity extends AppCompatActivity {
     private static final int VIDEO_CAPTURE = 101;
     String fileName;
     File f;
+    ProgressBar uploadProgress;
+    String videoId;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -38,6 +51,7 @@ public class VideoRecordActivity extends AppCompatActivity {
         setContentView(R.layout.activity_video_record);
         button = findViewById(R.id.capture_video_btn);
         videoView = findViewById(R.id.video_record_view);
+        uploadProgress = findViewById(R.id.upload_progressbar);
 
         button.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -80,9 +94,11 @@ public class VideoRecordActivity extends AppCompatActivity {
         root = new File(Environment.getExternalStorageDirectory(),"Project/Videos");
 
         String ts = String.valueOf(Instant.now().getEpochSecond());
+        videoId =ts;
 
 
-        File outputFile = new File(folderPath+"/"+ts+".mp4");
+
+        outputFile = new File(folderPath+"/"+ts+".mp4");
         videoUri = Uri.fromFile(outputFile);
         Log.i("VIDEO",videoUri.toString());
 
@@ -123,5 +139,110 @@ public class VideoRecordActivity extends AppCompatActivity {
                 videoView.start();
             }
         });
+
+        showProgress();
+
+        AWSMobileClient.getInstance().initialize(this).execute();
+        uploadWithTransferUtility();
+
+    }
+
+    public void showProgress(){
+        uploadProgress.setIndeterminate(true);
+
+        uploadProgress.setVisibility(View.VISIBLE);
+
+    }
+
+    public  void  hideProgress(){
+
+        uploadProgress.setVisibility(View.INVISIBLE);
+    }
+
+
+    public void setProgressBar(int progress){
+
+        if(progress!=0){
+            uploadProgress.setIndeterminate(false);
+        }
+        uploadProgress.setProgress(progress,true);
+
+    }
+
+
+    public void uploadWithTransferUtility() {
+
+        TransferUtility transferUtility =
+                TransferUtility.builder()
+                        .context(getApplicationContext())
+                        .awsConfiguration(AWSMobileClient.getInstance().getConfiguration())
+                        .s3Client(new AmazonS3Client(AWSMobileClient.getInstance().getCredentialsProvider()))
+                        .build();
+
+        final AmazonS3Client s3 = new AmazonS3Client(AWSMobileClient.getInstance().getCredentialsProvider());
+        Log.i("AWSS3",s3.toString());
+
+
+        new Thread(new Runnable() {
+            public void run() {
+                ListObjectsV2Result result = s3.listObjectsV2(BuildConfig.BUCKET_NAME);
+                List<S3ObjectSummary> objects = result.getObjectSummaries();
+                for (S3ObjectSummary os : objects) {
+                    System.out.println("* " + os.getKey());
+                }
+            }
+        }).start();
+
+
+
+
+
+
+        TransferObserver uploadObserver =
+                transferUtility.upload(
+                        "uploads/"+videoId+".mp4",
+                        outputFile);
+
+        // Attach a listener to the observer to get state update and progress notifications
+        uploadObserver.setTransferListener(new TransferListener() {
+
+            @Override
+            public void onStateChanged(int id, TransferState state) {
+                if (TransferState.COMPLETED == state) {
+                    // Handle a completed upload.
+                    hideProgress();
+
+
+                }
+            }
+
+            @Override
+            public void onProgressChanged(int id, long bytesCurrent, long bytesTotal) {
+                float percentDonef = ((float) bytesCurrent / (float) bytesTotal) * 100;
+                int percentDone = (int)percentDonef;
+
+                Log.d("YourActivity", "ID:" + id + " bytesCurrent: " + bytesCurrent
+                        + " bytesTotal: " + bytesTotal + " " + percentDone + "%");
+
+
+                Toast.makeText(getApplicationContext(),""+percentDone+"%",Toast.LENGTH_SHORT).show();
+                setProgressBar(percentDone);
+            }
+
+            @Override
+            public void onError(int id, Exception ex) {
+                // Handle errors
+            }
+
+        });
+
+        // If you prefer to poll for the data, instead of attaching a
+        // listener, check for the state and progress in the observer.
+        if (TransferState.COMPLETED == uploadObserver.getState()) {
+            // Handle a completed upload.
+        }
+
+        Log.d("YourActivity", "Bytes Transferrred: " + uploadObserver.getBytesTransferred());
+        Log.d("YourActivity", "Bytes Total: " + uploadObserver.getBytesTotal());
     }
 }
