@@ -2,9 +2,11 @@ package com.example.posture;
 
 import androidx.appcompat.app.AppCompatActivity;
 
+import android.app.ProgressDialog;
 import android.content.Intent;
 import android.media.MediaPlayer;
 import android.net.Uri;
+import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Environment;
 import android.os.StrictMode;
@@ -20,15 +22,21 @@ import java.io.File;
 import java.time.Instant;
 import java.util.List;
 
+import com.amazonaws.auth.AWSCredentialsProvider;
+import com.amazonaws.mobile.config.AWSConfiguration;
 import com.amazonaws.mobileconnectors.s3.transferutility.*;
 
 
 import com.amazonaws.mobile.client.AWSMobileClient;
 import com.amazonaws.regions.Regions;
+import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClient;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.model.ListObjectsV2Result;
 import com.amazonaws.services.s3.model.S3ObjectSummary;
+
+import com.amazonaws.mobileconnectors.dynamodbv2.dynamodbmapper.DynamoDBMapper;
+
 
 public class VideoRecordActivity extends AppCompatActivity {
 
@@ -43,9 +51,50 @@ public class VideoRecordActivity extends AppCompatActivity {
     File f;
     ProgressBar uploadProgress;
     String videoId;
+    DynamoDBMapper dynamoDBMapper;
+
+    public void endExercise() {
+        final PostureDbDO postureItem = new PostureDbDO();
+
+        postureItem.setUserId("amzn1.ask.account.AHGC4FDSZQGHDRU3UVOLGWQLVXHPY2CBMNMU4LYSG2AXREKYZZAZ3F5ADRCBGQQJV7BR6ZQQ3QOBL6SLOHFQ54NZ66GPJKA7IP7DVF3WEPAP4ZDH7KUVH2QXVMNFADK6I7J7N2NWJF77XRIKVZ4S5ZW7PRURBHNEF4PENNCRH7JDNROLIPLDCCU76LBIXEW33X26EJU3LY4FVCY");
+
+        postureItem.setExerciseId(1.0);
+        postureItem.setExerciseName("bicep curl");
+        postureItem.setIsExerciseOn(false);
+
+
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                dynamoDBMapper.save(postureItem);
+                // Item saved
+            }
+        }).start();
+    }
+
+    public void readExercise(final AsyncTaskRunner a) {
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+
+                PostureDbDO poseItem = dynamoDBMapper.load(
+                        PostureDbDO.class,
+                        "amzn1.ask.account.AHGC4FDSZQGHDRU3UVOLGWQLVXHPY2CBMNMU4LYSG2AXREKYZZAZ3F5ADRCBGQQJV7BR6ZQQ3QOBL6SLOHFQ54NZ66GPJKA7IP7DVF3WEPAP4ZDH7KUVH2QXVMNFADK6I7J7N2NWJF77XRIKVZ4S5ZW7PRURBHNEF4PENNCRH7JDNROLIPLDCCU76LBIXEW33X26EJU3LY4FVCY");
+
+                // Item read
+
+                 Log.d("pose Item:", poseItem.getExerciseName()+" "+poseItem.getUserId());
+
+                 if(poseItem.getIsExerciseOn())a.cancel(true);
+
+            }
+        }).start();
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+
+
 
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_video_record);
@@ -59,6 +108,35 @@ public class VideoRecordActivity extends AppCompatActivity {
                 dispatchTakeVideoIntent();
             }
         });
+
+        AWSMobileClient.getInstance().initialize(this).execute();
+        AWSCredentialsProvider credentialsProvider = AWSMobileClient.getInstance().getCredentialsProvider();
+        AWSConfiguration configuration = AWSMobileClient.getInstance().getConfiguration();
+
+
+        // Add code to instantiate a AmazonDynamoDBClient
+        AmazonDynamoDBClient dynamoDBClient = new AmazonDynamoDBClient(credentialsProvider);
+
+        this.dynamoDBMapper = DynamoDBMapper.builder()
+                .dynamoDBClient(dynamoDBClient)
+                .awsConfiguration(configuration)
+                .build();
+
+        AsyncTaskRunner runner = new AsyncTaskRunner();
+        String sleepTime = "5";
+        runner.execute(sleepTime);
+
+        button.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                AsyncTaskRunner runner = new AsyncTaskRunner();
+                String sleepTime = "5";
+                runner.execute(sleepTime);
+            }
+        });
+
+        //startExercise();
+
     }
 
     static final int REQUEST_VIDEO_CAPTURE = 1;
@@ -142,7 +220,7 @@ public class VideoRecordActivity extends AppCompatActivity {
 
         showProgress();
 
-        AWSMobileClient.getInstance().initialize(this).execute();
+
         uploadWithTransferUtility();
 
     }
@@ -211,6 +289,7 @@ public class VideoRecordActivity extends AppCompatActivity {
                 if (TransferState.COMPLETED == state) {
                     // Handle a completed upload.
                     hideProgress();
+                    endExercise();
 
 
                 }
@@ -245,4 +324,70 @@ public class VideoRecordActivity extends AppCompatActivity {
         Log.d("YourActivity", "Bytes Transferrred: " + uploadObserver.getBytesTransferred());
         Log.d("YourActivity", "Bytes Total: " + uploadObserver.getBytesTotal());
     }
+
+
+
+    private class AsyncTaskRunner extends AsyncTask<String, String, String> {
+
+        private String resp;
+        ProgressDialog progressDialog;
+
+        @Override
+        protected String doInBackground(String... params) {
+            readExercise(this);
+
+
+            try {
+                int time = Integer.parseInt(params[0])*1000;
+
+
+                readExercise(this);
+
+
+                Thread.sleep(time);
+                resp = "Slept for " + params[0] + " seconds";
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+                resp = e.getMessage();
+            } catch (Exception e) {
+                e.printStackTrace();
+                resp = e.getMessage();
+            }
+            return resp;
+        }
+
+        protected void onCancelled() {
+            Toast.makeText(getApplicationContext(), "asynctack cancelled.....", Toast.LENGTH_SHORT).show();
+            progressDialog.hide(); /*hide the progressbar dialog here...*/
+
+            dispatchTakeVideoIntent();
+            super.onCancelled();
+        }
+
+
+        @Override
+        protected void onPostExecute(String result) {
+            // execution of result of Long time consuming operation
+            progressDialog.dismiss();
+
+        }
+
+
+        @Override
+        protected void onPreExecute() {
+            progressDialog = ProgressDialog.show(VideoRecordActivity.this,
+                    "ProgressDialog",
+                    "Wait for  seconds");
+        }
+
+
+        @Override
+        protected void onProgressUpdate(String... text) {
+            //finalResult.setText(text[0]);
+
+        }
+    }
 }
+
+
+

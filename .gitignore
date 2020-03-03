@@ -2,7 +2,7 @@
 .gradle
 
 /local.properties
-*configuration.json
+
 /.idea/caches
 /.idea/libraries
 /.idea/modules.xml
