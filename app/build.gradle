@@ -1,0 +1,61 @@
+apply plugin: 'com.android.application'
+
+android {
+    compileSdkVersion 28
+    defaultConfig {
+        applicationId "com.example.posturead"
+        minSdkVersion 21
+        targetSdkVersion 28
+        versionCode 1
+        versionName "1.0"
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        ndk {
+            abiFilter "armeabi-v7a"
+            abiFilter "arm64-v8a"
+        }
+    }
+
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+
+        buildTypes.each {
+            it.buildConfigField 'String', 'BUCKET_NAME', BUCKET_NAME
+        }
+    }
+}
+
+dependencies {
+    implementation fileTree(dir: 'libs', include: ['*.jar'])
+    implementation 'androidx.appcompat:appcompat:1.1.0'
+    implementation 'androidx.constraintlayout:constraintlayout:1.1.3'
+    testImplementation 'junit:junit:4.12'
+    androidTestImplementation 'androidx.test:runner:1.2.0'
+    androidTestImplementation 'androidx.test.espresso:espresso-core:3.2.0'
+
+    implementation "com.amazonaws:aws-android-sdk-core:2.6.31"
+
+    implementation 'androidx.constraintlayout:constraintlayout:1.1.3'
+    testImplementation 'junit:junit:4.12'
+    androidTestImplementation 'androidx.test:runner:1.1.1'
+    androidTestImplementation 'androidx.test.espresso:espresso-core:3.1.1'
+    implementation('com.amazonaws:aws-android-sdk-mobile-client:2.7.+@aar') { transitive = true }
+    implementation 'com.amazonaws:aws-android-sdk-s3:2.7.+'
+    implementation 'com.amazonaws:aws-android-sdk-cognito:2.7.+'
+    implementation 'com.amazonaws:aws-android-sdk-ddb-mapper:2.7.+'
+    implementation project(':ffmpeg4android_lib')
+
+}
+
+
+
+
+
+
+
+
+
+
