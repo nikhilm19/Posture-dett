@@ -20,7 +20,9 @@ import android.widget.VideoView;
 
 import java.io.File;
 import java.time.Instant;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.mobile.config.AWSConfiguration;
@@ -30,20 +32,25 @@ import com.amazonaws.mobileconnectors.s3.transferutility.*;
 import com.amazonaws.mobile.client.AWSMobileClient;
 import com.amazonaws.regions.Regions;
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClient;
+import com.amazonaws.services.dynamodbv2.model.AttributeValue;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.model.ListObjectsV2Result;
 import com.amazonaws.services.s3.model.S3ObjectSummary;
 
 import com.amazonaws.mobileconnectors.dynamodbv2.dynamodbmapper.DynamoDBMapper;
+import com.android.volley.Request;
+import com.android.volley.RequestQueue;
+import com.android.volley.Response;
+import com.android.volley.VolleyError;
+import com.android.volley.toolbox.StringRequest;
+import com.android.volley.toolbox.Volley;
 
 
 public class VideoRecordActivity extends AppCompatActivity {
 
     Uri videoUri;
     File outputFile;
-
-
     Button button;
     VideoView videoView;
     private static final int VIDEO_CAPTURE = 101;
@@ -52,21 +59,20 @@ public class VideoRecordActivity extends AppCompatActivity {
     ProgressBar uploadProgress;
     String videoId;
     DynamoDBMapper dynamoDBMapper;
+    PostureDbDO currPoseItem;
 
     public void endExercise() {
         final PostureDbDO postureItem = new PostureDbDO();
 
-        postureItem.setUserId("amzn1.ask.account.AHGC4FDSZQGHDRU3UVOLGWQLVXHPY2CBMNMU4LYSG2AXREKYZZAZ3F5ADRCBGQQJV7BR6ZQQ3QOBL6SLOHFQ54NZ66GPJKA7IP7DVF3WEPAP4ZDH7KUVH2QXVMNFADK6I7J7N2NWJF77XRIKVZ4S5ZW7PRURBHNEF4PENNCRH7JDNROLIPLDCCU76LBIXEW33X26EJU3LY4FVCY");
+        currPoseItem.setIsExerciseOn(Boolean.FALSE);
 
-        postureItem.setExerciseId(1.0);
-        postureItem.setExerciseName("bicep curl");
-        postureItem.setIsExerciseOn(false);
+
 
 
         new Thread(new Runnable() {
             @Override
             public void run() {
-                dynamoDBMapper.save(postureItem);
+                dynamoDBMapper.save(currPoseItem);
                 // Item saved
             }
         }).start();
@@ -77,15 +83,15 @@ public class VideoRecordActivity extends AppCompatActivity {
             @Override
             public void run() {
 
-                PostureDbDO poseItem = dynamoDBMapper.load(
+                currPoseItem = dynamoDBMapper.load(
                         PostureDbDO.class,
                         "amzn1.ask.account.AHGC4FDSZQGHDRU3UVOLGWQLVXHPY2CBMNMU4LYSG2AXREKYZZAZ3F5ADRCBGQQJV7BR6ZQQ3QOBL6SLOHFQ54NZ66GPJKA7IP7DVF3WEPAP4ZDH7KUVH2QXVMNFADK6I7J7N2NWJF77XRIKVZ4S5ZW7PRURBHNEF4PENNCRH7JDNROLIPLDCCU76LBIXEW33X26EJU3LY4FVCY");
 
                 // Item read
 
-                 Log.d("pose Item:", poseItem.getExerciseName()+" "+poseItem.getUserId());
+                 Log.d("pose Item:", currPoseItem.getExerciseName()+" "+currPoseItem.getUserId());
 
-                 if(poseItem.getIsExerciseOn())a.cancel(true);
+                 if(currPoseItem.getIsExerciseOn())a.cancel(true);
 
             }
         }).start();
@@ -123,14 +129,14 @@ public class VideoRecordActivity extends AppCompatActivity {
                 .build();
 
         AsyncTaskRunner runner = new AsyncTaskRunner();
-        String sleepTime = "5";
+        String sleepTime = "10";
         runner.execute(sleepTime);
 
         button.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 AsyncTaskRunner runner = new AsyncTaskRunner();
-                String sleepTime = "5";
+                String sleepTime = "10";
                 runner.execute(sleepTime);
             }
         });
@@ -247,6 +253,73 @@ public class VideoRecordActivity extends AppCompatActivity {
 
     }
 
+    public void getServer(){
+
+
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+
+                PostureDbDO serverItem = dynamoDBMapper.load(
+                        PostureDbDO.class,"server");
+
+                Log.d("Server_ITEM",serverItem.getLocalServerUrl());
+
+                RequestQueue queue = Volley.newRequestQueue(getApplicationContext());  // this = context
+
+
+
+
+
+                final String videoUrl ="https://posturedetection-userfiles-mobilehub-1869887158.s3.amazonaws.com/uploads/"+videoId+".mp4";
+
+
+                //TODO make a API CALL
+
+                String API_URL = serverItem.getLocalServerUrl()+"/posture-output";
+
+                StringRequest postRequest = new StringRequest(Request.Method.POST, API_URL,
+                        new Response.Listener<String>()
+                        {
+                            @Override
+                            public void onResponse(String response) {
+                                // response
+                                Log.d("Response", response);
+                            }
+                        },
+                        new Response.ErrorListener()
+                        {
+                            @Override
+                            public void onErrorResponse(VolleyError error) {
+                                // error
+                                Log.d("Error.Response", error.toString());
+                            }
+                        }
+                ) {
+                    @Override
+                    protected Map<String, String> getParams()
+                    {
+                        Map<String, String>  params = new HashMap<String, String>();
+                        params.put("videoId", videoId);
+                        params.put("videoUrl",videoUrl);
+
+
+                        return params;
+                    }
+                };
+                queue.add(postRequest);
+
+
+
+            }
+        }).start();
+
+
+
+
+
+    }
+
 
     public void uploadWithTransferUtility() {
 
@@ -255,6 +328,7 @@ public class VideoRecordActivity extends AppCompatActivity {
                         .context(getApplicationContext())
                         .awsConfiguration(AWSMobileClient.getInstance().getConfiguration())
                         .s3Client(new AmazonS3Client(AWSMobileClient.getInstance().getCredentialsProvider()))
+
                         .build();
 
         final AmazonS3Client s3 = new AmazonS3Client(AWSMobileClient.getInstance().getCredentialsProvider());
@@ -263,7 +337,7 @@ public class VideoRecordActivity extends AppCompatActivity {
 
         new Thread(new Runnable() {
             public void run() {
-                ListObjectsV2Result result = s3.listObjectsV2(BuildConfig.BUCKET_NAME);
+                ListObjectsV2Result result = s3.listObjectsV2("posturedetection-userfiles-mobilehub-1869887158");
                 List<S3ObjectSummary> objects = result.getObjectSummaries();
                 for (S3ObjectSummary os : objects) {
                     System.out.println("* " + os.getKey());
@@ -288,6 +362,15 @@ public class VideoRecordActivity extends AppCompatActivity {
             public void onStateChanged(int id, TransferState state) {
                 if (TransferState.COMPLETED == state) {
                     // Handle a completed upload.
+
+
+                    //Map<String, AttributeValue> key = new HashMap<String, AttributeValue>();
+                    //key.put("")
+
+                    getServer();
+
+
+
                     hideProgress();
                     endExercise();
 
@@ -376,8 +459,9 @@ public class VideoRecordActivity extends AppCompatActivity {
         @Override
         protected void onPreExecute() {
             progressDialog = ProgressDialog.show(VideoRecordActivity.this,
-                    "ProgressDialog",
-                    "Wait for  seconds");
+                    "Posture Video",
+                    "Please wait");
+
         }
 
 

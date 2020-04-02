@@ -18,6 +18,7 @@ public class PostureDbDO {
     private Double _exerciseId;
     private String _exerciseName;
     private Boolean _isExerciseOn;
+    private String _localServerUrl;
 
     @DynamoDBHashKey(attributeName = "userId")
     @DynamoDBAttribute(attributeName = "userId")
@@ -51,6 +52,14 @@ public class PostureDbDO {
 
     public void setIsExerciseOn(final Boolean _isExerciseOn) {
         this._isExerciseOn = _isExerciseOn;
+    }
+    @DynamoDBAttribute(attributeName = "local_server_url")
+    public String getLocalServerUrl() {
+        return _localServerUrl;
+    }
+
+    public void setLocalServerUrl(final String _localServerUrl) {
+        this._localServerUrl = _localServerUrl;
     }
 
 }
