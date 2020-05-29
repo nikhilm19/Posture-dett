@@ -4,7 +4,7 @@ android {
     compileSdkVersion 28
     defaultConfig {
         applicationId "com.example.posturead"
-        minSdkVersion 21
+        minSdkVersion 26
         targetSdkVersion 28
         versionCode 1
         versionName "1.0"
@@ -46,6 +46,7 @@ dependencies {
     implementation 'com.amazonaws:aws-android-sdk-s3:2.7.+'
     implementation 'com.amazonaws:aws-android-sdk-cognito:2.7.+'
     implementation 'com.amazonaws:aws-android-sdk-ddb-mapper:2.7.+'
+    implementation 'com.android.volley:volley:1.1.1'
     implementation project(':ffmpeg4android_lib')
 
 }

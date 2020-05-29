@@ -2,12 +2,11 @@ package com.example.posturead;
 
 import androidx.appcompat.app.AppCompatActivity;
 
-import android.content.Context;
+import android.app.ProgressDialog;
 import android.content.Intent;
 import android.media.MediaPlayer;
 import android.net.Uri;
 import android.os.AsyncTask;
-import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
 import android.os.StrictMode;
@@ -20,34 +19,51 @@ import android.widget.Toast;
 import android.widget.VideoView;
 
 import java.io.File;
+import java.time.Instant;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import com.amazonaws.auth.AWSCredentialsProvider;
+import com.amazonaws.mobile.config.AWSConfiguration;
+import com.amazonaws.mobileconnectors.s3.transferutility.*;
+
+
+import com.amazonaws.mobile.client.AWSMobileClient;
+import com.amazonaws.regions.Regions;
+import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClient;
+import com.amazonaws.services.dynamodbv2.model.AttributeValue;
+import com.amazonaws.services.s3.AmazonS3;
+import com.amazonaws.services.s3.AmazonS3Client;
+import com.amazonaws.services.s3.model.ListObjectsV2Result;
+import com.amazonaws.services.s3.model.S3ObjectSummary;
+
+import com.amazonaws.mobileconnectors.dynamodbv2.dynamodbmapper.DynamoDBMapper;
+import com.android.volley.Request;
+import com.android.volley.RequestQueue;
+import com.android.volley.Response;
+import com.android.volley.VolleyError;
+import com.android.volley.toolbox.StringRequest;
+import com.android.volley.toolbox.Volley;
+
+
+
+
+import android.os.Build;
+
+
+import java.io.File;
 import java.net.URISyntaxException;
 import java.time.Instant;
 import java.util.List;
 import androidx.annotation.RequiresApi;
-
-
-        import java.io.File;
-        import java.time.Instant;
-        import java.util.List;
-
-        import com.amazonaws.mobileconnectors.s3.transferutility.*;
-
-
-        import com.amazonaws.mobile.client.AWSMobileClient;
-        import com.amazonaws.regions.Regions;
-        import com.amazonaws.services.s3.AmazonS3;
-        import com.amazonaws.services.s3.AmazonS3Client;
-        import com.amazonaws.services.s3.model.ListObjectsV2Result;
-        import com.amazonaws.services.s3.model.S3ObjectSummary;
-        import com.netcompss.loader.LoadJNI;
+import com.netcompss.loader.LoadJNI;
 
 
 public class VideoRecordActivity extends AppCompatActivity {
 
     Uri videoUri;
     File outputFile;
-
-
     Button button;
     VideoView videoView;
     private static final int VIDEO_CAPTURE = 101;
@@ -55,9 +71,49 @@ public class VideoRecordActivity extends AppCompatActivity {
     File f;
     ProgressBar uploadProgress;
     String videoId;
+    DynamoDBMapper dynamoDBMapper;
+    PostureDbDO currPoseItem;
+
+    public void endExercise() {
+        final PostureDbDO postureItem = new PostureDbDO();
+
+        currPoseItem.setIsExerciseOn(Boolean.FALSE);
+
+
+
+
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                dynamoDBMapper.save(currPoseItem);
+                // Item saved
+            }
+        }).start();
+    }
+
+    public void readExercise(final AsyncTaskRunner a) {
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+
+                currPoseItem = dynamoDBMapper.load(
+                        PostureDbDO.class,
+                        "amzn1.ask.account.AHGC4FDSZQGHDRU3UVOLGWQLVXHPY2CBMNMU4LYSG2AXREKYZZAZ3F5ADRCBGQQJV7BR6ZQQ3QOBL6SLOHFQ54NZ66GPJKA7IP7DVF3WEPAP4ZDH7KUVH2QXVMNFADK6I7J7N2NWJF77XRIKVZ4S5ZW7PRURBHNEF4PENNCRH7JDNROLIPLDCCU76LBIXEW33X26EJU3LY4FVCY");
+
+                // Item read
+
+                Log.d("pose Item:", currPoseItem.getExerciseName()+" "+currPoseItem.getUserId());
+
+                if(currPoseItem.getIsExerciseOn())a.cancel(true);
+
+            }
+        }).start();
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+
+
 
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_video_record);
@@ -66,22 +122,45 @@ public class VideoRecordActivity extends AppCompatActivity {
         uploadProgress = findViewById(R.id.upload_progressbar);
 
         button.setOnClickListener(new View.OnClickListener() {
-            @RequiresApi(api = Build.VERSION_CODES.O)
             @Override
             public void onClick(View v) {
-                try {
-                    dispatchTakeVideoIntent();
-                } catch (URISyntaxException e) {
-                    e.printStackTrace();
-                }
+                dispatchTakeVideoIntent();
             }
         });
+
+        AWSMobileClient.getInstance().initialize(this).execute();
+        AWSCredentialsProvider credentialsProvider = AWSMobileClient.getInstance().getCredentialsProvider();
+        AWSConfiguration configuration = AWSMobileClient.getInstance().getConfiguration();
+
+
+        // Add code to instantiate a AmazonDynamoDBClient
+        AmazonDynamoDBClient dynamoDBClient = new AmazonDynamoDBClient(credentialsProvider);
+
+        this.dynamoDBMapper = DynamoDBMapper.builder()
+                .dynamoDBClient(dynamoDBClient)
+                .awsConfiguration(configuration)
+                .build();
+
+        AsyncTaskRunner runner = new AsyncTaskRunner();
+        String sleepTime = "10";
+        runner.execute(sleepTime);
+
+        button.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                AsyncTaskRunner runner = new AsyncTaskRunner();
+                String sleepTime = "10";
+                runner.execute(sleepTime);
+            }
+        });
+
+        //startExercise();
+
     }
 
     static final int REQUEST_VIDEO_CAPTURE = 1;
 
-    @RequiresApi(api = Build.VERSION_CODES.O)
-    private void dispatchTakeVideoIntent() throws URISyntaxException {
+    private void dispatchTakeVideoIntent() {
 
 
         //Soltution to --- exposed beyond app through ClipData.Item.getUri()
@@ -105,27 +184,21 @@ public class VideoRecordActivity extends AppCompatActivity {
             root = new File(Environment.getExternalStorageDirectory()+"/Project/Videos");
             if(!root.exists()){
                 root.mkdirs();
-
             }
         }
 
 
         root = new File(Environment.getExternalStorageDirectory(),"Project/Videos");
 
-
         String ts = String.valueOf(Instant.now().getEpochSecond());
         videoId =ts;
-
-        Log.e("dharmesh",ts.toString());
 
 
 
         outputFile = new File(folderPath+"/"+ts+".mp4");
-        Log.e("opfile",outputFile.toString() );
-
         videoUri = Uri.fromFile(outputFile);
         Log.i("VIDEO",videoUri.toString());
-        Log.e( "deep","dispatchTakeVideoIntent: "+videoUri.getPath() );
+
         intent.putExtra(android.provider.MediaStore.EXTRA_OUTPUT, videoUri);
         startActivityForResult(intent, VIDEO_CAPTURE);
 
@@ -135,8 +208,10 @@ public class VideoRecordActivity extends AppCompatActivity {
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
 
-        super.onActivityResult(requestCode, resultCode, data);
-        Log.i("VIDEO", videoUri.toString());
+        //using global uri here to solve null error
+
+
+        Log.i("VIDEO-RESULT",videoUri.toString());
 
         if (requestCode == VIDEO_CAPTURE) {
             if (resultCode == RESULT_OK) {
@@ -151,8 +226,6 @@ public class VideoRecordActivity extends AppCompatActivity {
             }
         }
 
-        String filepath1=null;
-
 
         Uri video = Uri.parse(videoUri.toString());
         videoView.setVideoURI(video);
@@ -161,11 +234,8 @@ public class VideoRecordActivity extends AppCompatActivity {
             public void onPrepared(MediaPlayer mp) {
                 mp.setLooping(true);
                 videoView.start();
-
             }
         });
-
-        showProgress();
 
         LoadJNI vk = new LoadJNI();
         try {
@@ -173,15 +243,18 @@ public class VideoRecordActivity extends AppCompatActivity {
             String[] complexCommand = {"ffmpeg","-i",outputFile.toString(),"-b","800k","/storage/emulated/0/Project/Videos/"+videoId+"_extracted.mp4" };
             vk.run(complexCommand , workFolder , getApplicationContext());
             Log.i("test", "ffmpeg4android finished successfully");
+            //todo
+
+
             outputFile=new File("/storage/emulated/0/Project/Videos/"+videoId+"_extracted.mp4");
         } catch (Throwable e) {
             Log.e("test", "vk run exception.", e);
         }
 
 
+        showProgress();
 
 
-        AWSMobileClient.getInstance().initialize(this).execute();
         uploadWithTransferUtility();
 
     }
@@ -199,13 +272,79 @@ public class VideoRecordActivity extends AppCompatActivity {
     }
 
 
-    @RequiresApi(api = Build.VERSION_CODES.N)
     public void setProgressBar(int progress){
 
         if(progress!=0){
             uploadProgress.setIndeterminate(false);
         }
         uploadProgress.setProgress(progress,true);
+
+    }
+
+    public void getServer(){
+
+
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+
+                PostureDbDO serverItem = dynamoDBMapper.load(
+                        PostureDbDO.class,"server");
+
+                Log.d("Server_ITEM",serverItem.getLocalServerUrl());
+
+                RequestQueue queue = Volley.newRequestQueue(getApplicationContext());  // this = context
+
+
+
+
+
+                final String videoUrl ="https://posturedetection-userfiles-mobilehub-1869887158.s3.amazonaws.com/uploads/"+videoId+".mp4";
+
+
+                //TODO make a API CALL
+
+                String API_URL = serverItem.getLocalServerUrl()+"/posture-output";
+
+                StringRequest postRequest = new StringRequest(Request.Method.POST, API_URL,
+                        new Response.Listener<String>()
+                        {
+                            @Override
+                            public void onResponse(String response) {
+                                // response
+                                Log.d("Response", response);
+                            }
+                        },
+                        new Response.ErrorListener()
+                        {
+                            @Override
+                            public void onErrorResponse(VolleyError error) {
+                                // error
+                                Log.d("Error.Response", error.toString());
+                            }
+                        }
+                ) {
+                    @Override
+                    protected Map<String, String> getParams()
+                    {
+                        Map<String, String>  params = new HashMap<String, String>();
+                        params.put("videoId", videoId);
+                        params.put("videoUrl",videoUrl);
+
+
+                        return params;
+                    }
+                };
+                queue.add(postRequest);
+
+
+
+            }
+        }).start();
+
+
+
+
 
     }
 
@@ -217,6 +356,7 @@ public class VideoRecordActivity extends AppCompatActivity {
                         .context(getApplicationContext())
                         .awsConfiguration(AWSMobileClient.getInstance().getConfiguration())
                         .s3Client(new AmazonS3Client(AWSMobileClient.getInstance().getCredentialsProvider()))
+
                         .build();
 
         final AmazonS3Client s3 = new AmazonS3Client(AWSMobileClient.getInstance().getCredentialsProvider());
@@ -250,13 +390,22 @@ public class VideoRecordActivity extends AppCompatActivity {
             public void onStateChanged(int id, TransferState state) {
                 if (TransferState.COMPLETED == state) {
                     // Handle a completed upload.
+
+
+                    //Map<String, AttributeValue> key = new HashMap<String, AttributeValue>();
+                    //key.put("")
+
+                    getServer();
+
+
+
                     hideProgress();
+                    endExercise();
 
 
                 }
             }
 
-            @RequiresApi(api = Build.VERSION_CODES.N)
             @Override
             public void onProgressChanged(int id, long bytesCurrent, long bytesTotal) {
                 float percentDonef = ((float) bytesCurrent / (float) bytesTotal) * 100;
@@ -289,40 +438,74 @@ public class VideoRecordActivity extends AppCompatActivity {
 
 
 
+    private class AsyncTaskRunner extends AsyncTask<String, String, String> {
+
+        private String resp;
+        ProgressDialog progressDialog;
+
+        @Override
+        protected String doInBackground(String... params) {
+            readExercise(this);
+
+
+            try {
+                int time = Integer.parseInt(params[0])*1000;
+
+
+                readExercise(this);
+
+
+                Thread.sleep(time);
+                resp = "Slept for " + params[0] + " seconds";
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+                resp = e.getMessage();
+            } catch (Exception e) {
+                e.printStackTrace();
+                resp = e.getMessage();
+            }
+            return resp;
+        }
+
+        protected void onCancelled() {
+            Toast.makeText(getApplicationContext(), "Record your video..", Toast.LENGTH_LONG).show();
+            progressDialog.hide(); /*hide the progressbar dialog here...*/
+
+            dispatchTakeVideoIntent();
+            super.onCancelled();
+        }
+
+
+        @Override
+        protected void onPostExecute(String result) {
+            // execution of result of Long time consuming operation
+            progressDialog.dismiss();
+
+        }
+
+
+        @Override
+        protected void onPreExecute() {
+            progressDialog = ProgressDialog.show(VideoRecordActivity.this,
+                    "Posture Video",
+                    "Please wait");
+
+        }
+
+
+        @Override
+        protected void onProgressUpdate(String... text) {
+            //finalResult.setText(text[0]);
+
+        }
+    }
 }
 
 
 
-//class VideoCompressAsyncTask extends AsyncTask<String, String, String> {
-//
-//    Context mContext;
-//
-//    public VideoCompressAsyncTask(Context context) {
-//        mContext = context;
-//    }
-//
-//    @Override
-//    protected void onPreExecute() {
-//        super.onPreExecute();
-//    }
-//
-//    @Override
-//    protected String doInBackground(String... paths) {
-//        String filePath1 = null;
-//        try {
-//            Log.e( "p1",paths[0]);
-//            Log.e( "p1",paths[1]);
-//            filePath1 = SiliCompressor.with(mContext).compressVideo(paths[0], paths[1]);
-//            Log.e("doinback",filePath1.toString());
-//
-//        } catch (URISyntaxException e) {
-//            e.printStackTrace();
-//        }
-//        return filePath1;
-//    }
-//
-//    @Override
-//    protected void onPostExecute(String s) {
-//        super.onPostExecute(s);
-//    }
-//}
+
+
+
+
+
+

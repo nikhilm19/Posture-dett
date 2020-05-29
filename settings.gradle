@@ -1,4 +1,7 @@
 include ':app'
 rootProject.name='PostureAD'
 include 'ffmpeg4android_lib'
-project(':ffmpeg4android_lib').projectDir = new File('C:\\Users\\deepg\\Desktop\\ffmpeg4android_demo_studio\\ffmpeg4android_lib')
+
+
+
+project(':ffmpeg4android_lib').projectDir = new File('ffmpeg4android_demo_studio/ffmpeg4android_lib')
