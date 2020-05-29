@@ -8,6 +8,8 @@
 /.idea/navEditor.xml
 /.idea/assetWizardSettings.xml
 .DS_Store
+
+ffmpeg4android_demo_studio/ffmpeg4android_lib/build
 /build
 /captures
 .externalNativeBuild
