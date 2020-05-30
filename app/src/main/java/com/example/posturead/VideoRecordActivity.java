@@ -311,7 +311,7 @@ public class VideoRecordActivity extends AppCompatActivity {
 
 
 
-                final String videoUrl ="https://posturedetection-userfiles-mobilehub-1869887158.s3.amazonaws.com/uploads/"+videoId+".mp4";
+                final String videoUrl ="https://posturedetection-userfiles-mobilehub-1869887158.s3.amazonaws.com/uploads/"+videoId+"_extracted.mp4";
 
 
                 //TODO make a API CALL
@@ -340,7 +340,7 @@ public class VideoRecordActivity extends AppCompatActivity {
                     protected Map<String, String> getParams()
                     {
                         Map<String, String>  params = new HashMap<String, String>();
-                        params.put("videoId", videoId);
+                        params.put("videoId", videoId+"_extracted");
                         params.put("videoUrl",videoUrl);
 
 
