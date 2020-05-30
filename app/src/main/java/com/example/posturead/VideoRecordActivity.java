@@ -9,6 +9,7 @@ import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Environment;
+import android.os.Looper;
 import android.os.StrictMode;
 import android.provider.MediaStore;
 import android.util.Log;
@@ -64,7 +65,7 @@ public class VideoRecordActivity extends AppCompatActivity {
 
     Uri videoUri;
     File outputFile;
-    Button button;
+    Button button,resultsBtn;
     VideoView videoView;
     private static final int VIDEO_CAPTURE = 101;
     String fileName;
@@ -104,7 +105,13 @@ public class VideoRecordActivity extends AppCompatActivity {
 
                 Log.d("pose Item:", currPoseItem.getExerciseName()+" "+currPoseItem.getUserId());
 
-                if(currPoseItem.getIsExerciseOn())a.cancel(true);
+                if(currPoseItem.getIsExerciseOn()){
+
+                    a.cancel(true);
+                }
+                else {
+                    Looper.prepare();
+                                    }
 
             }
         }).start();
@@ -118,15 +125,22 @@ public class VideoRecordActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_video_record);
         button = findViewById(R.id.capture_video_btn);
+        resultsBtn=findViewById(R.id.results_btn);
         videoView = findViewById(R.id.video_record_view);
         uploadProgress = findViewById(R.id.upload_progressbar);
 
-        button.setOnClickListener(new View.OnClickListener() {
+
+
+        resultsBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                dispatchTakeVideoIntent();
+
+                Intent intent  = new Intent(getApplicationContext(),Output.class);
+                startActivity(intent);
             }
         });
+
+
 
         AWSMobileClient.getInstance().initialize(this).execute();
         AWSCredentialsProvider credentialsProvider = AWSMobileClient.getInstance().getCredentialsProvider();
@@ -141,9 +155,6 @@ public class VideoRecordActivity extends AppCompatActivity {
                 .awsConfiguration(configuration)
                 .build();
 
-        AsyncTaskRunner runner = new AsyncTaskRunner();
-        String sleepTime = "10";
-        runner.execute(sleepTime);
 
         button.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -209,6 +220,7 @@ public class VideoRecordActivity extends AppCompatActivity {
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
 
         //using global uri here to solve null error
+       super.onActivityResult(requestCode,resultCode,data);
 
 
         Log.i("VIDEO-RESULT",videoUri.toString());
@@ -457,6 +469,7 @@ public class VideoRecordActivity extends AppCompatActivity {
 
                 Thread.sleep(time);
                 resp = "Slept for " + params[0] + " seconds";
+
             } catch (InterruptedException e) {
                 e.printStackTrace();
                 resp = e.getMessage();
@@ -480,6 +493,9 @@ public class VideoRecordActivity extends AppCompatActivity {
         protected void onPostExecute(String result) {
             // execution of result of Long time consuming operation
             progressDialog.dismiss();
+            Toast.makeText(getApplicationContext(),"Please ask Alexa for exercise first",Toast.LENGTH_LONG).show();
+
+
 
         }
 

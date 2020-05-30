@@ -48,6 +48,9 @@ dependencies {
     implementation 'com.amazonaws:aws-android-sdk-ddb-mapper:2.7.+'
     implementation 'com.android.volley:volley:1.1.1'
     implementation project(':ffmpeg4android_lib')
+    implementation "com.android.support:recyclerview-v7:28.1.0"
+    implementation 'com.github.bumptech.glide:glide:4.11.0'
+    annotationProcessor 'com.github.bumptech.glide:compiler:4.11.0'
 
 }
 
