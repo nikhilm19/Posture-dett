@@ -5,6 +5,8 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageView;
+import android.widget.LinearLayout;
+
 import android.widget.RelativeLayout;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -35,7 +37,7 @@ public class ImagesListAdapter extends RecyclerView.Adapter<ImagesListAdapter.Vi
     @Override
     public void onBindViewHolder(ViewHolder holder, int position) {
         final ImagesListData myListData = listdata[position];
-        //holder.textView.setText(listdata[position].getDescription());
+        holder.textView.setText(listdata[position].getDescription());
 
 
 
@@ -43,7 +45,7 @@ public class ImagesListAdapter extends RecyclerView.Adapter<ImagesListAdapter.Vi
         Glide.with(context).load(listdata[position].getUrl()).into(holder.imageView);
 
         //holder.imageView.setImageResource(listdata[position].getImgId());
-        holder.relativeLayout.setOnClickListener(new View.OnClickListener() {
+        holder.linearLayout.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
                 Toast.makeText(view.getContext(),"click on item: "+myListData.getUrl(),Toast.LENGTH_LONG).show();
@@ -64,14 +66,14 @@ public class ImagesListAdapter extends RecyclerView.Adapter<ImagesListAdapter.Vi
 
         public ImageView imageView;
         public TextView textView;
-        public RelativeLayout relativeLayout;
+        public LinearLayout linearLayout;
         public ViewHolder(View itemView) {
             super(itemView);
 
             context = itemView.getContext();
             this.imageView = (ImageView) itemView.findViewById(R.id.imageView);
-            this.textView = (TextView) itemView.findViewById(R.id.textView);
-            relativeLayout = (RelativeLayout)itemView.findViewById(R.id.relativeLayout);
+            this.textView = (TextView) itemView.findViewById(R.id.caption);
+            linearLayout = (LinearLayout) itemView.findViewById(R.id.linearlayout);
         }
     }
 }

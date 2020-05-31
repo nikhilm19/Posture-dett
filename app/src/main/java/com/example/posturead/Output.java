@@ -59,6 +59,7 @@ public class Output extends AppCompatActivity {
     public void uploadWithTransferUtility() {
 
         final ArrayList urls= new ArrayList<String>();
+        final ArrayList desc = new ArrayList<String>();
 
         TransferUtility transferUtility =
                 TransferUtility.builder()
@@ -80,9 +81,11 @@ public class Output extends AppCompatActivity {
                 for (S3ObjectSummary os : objects) {
 
 
-                    if(os.getKey().startsWith("feedback-images-left/") || os.getKey().startsWith("feedback-images-right/")){
+                    if(os.getKey().startsWith("feedback-images") && ! os.getKey().startsWith("feedback-images-left") && ! os.getKey().startsWith("feedback-images-right") ){
                         String url = "https://posturedetection-userfiles-mobilehub-1869887158.s3.amazonaws.com/"+os.getKey();
                         urls.add(url);
+                        desc.add(os.getKey().split("-")[2].replace(".jpg",""));
+
 
                         Log.i("PUBLIC-URL",url);
 
@@ -109,7 +112,7 @@ public class Output extends AppCompatActivity {
             for(int i =0;i<urls.size();i++){
 
                 Log.i("urls",urls.get(i).toString());
-                myListData[i]=new ImagesListData("Email", urls.get(i).toString());
+                myListData[i]=new ImagesListData(desc.get(i).toString(), urls.get(i).toString());
 
 
             }
